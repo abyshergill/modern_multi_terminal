@@ -37,10 +37,10 @@ class TeraTermMacroRunner:
             if arg in self.variables: arg = self.variables[arg]
 
             if cmd == "end":
-                self.session.incoming.put(f"[TTL line {line_no}: 'end' execution loop terminated successfully]\n")
+                self.session.incoming.put(f"\r\n[TTL line {line_no}: 'end' execution loop terminated successfully]\r\n")
                 break
 
-            self.session.incoming.put(f"[TTL line {line_no}: {cmd}]\n")
+            self.session.incoming.put(f"\r\n[TTL line {line_no}: {cmd}]\r\n")
             if cmd == "connect": self._connect(arg)
             elif cmd == "wait": self._wait(arg)
             elif cmd == "sendln": self.session.send(self._unquote(arg) + "\n")
@@ -50,7 +50,8 @@ class TeraTermMacroRunner:
                 if cmd == "mpause": delay /= 1000
                 time.sleep(delay)
             else:
-                self.session.incoming.put(f"[TTL warning: unsupported command on line {line_no}: {cmd}]\n")
+                self.session.incoming.put(f"\r\n[TTL warning: unsupported command on line {line_no}: {cmd}]\r\n")
+
 
     def _clean_line(self, raw: str) -> str:
         line = raw.strip()
@@ -115,7 +116,10 @@ def execute_python_script_sync(session: "TerminalSession", path: str):
         session.send(str(text) + ("\n" if newline else ""))
 
     def print_to_terminal(*args, sep=" ", end="\n"):
-        session.incoming.put(sep.join(str(a) for a in args) + end)
+        text = sep.join(str(a) for a in args) + end
+        text = text.replace("\r\n", "\n").replace("\n", "\r\n")
+        session.incoming.put(text)
+
 
     def connect_ssh(host, username, password, port=22):
         conn = SSHConnection(host=host, username=username, password=password, port=port, look_for_keys=False, allow_agent=False)

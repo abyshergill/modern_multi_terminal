@@ -41,6 +41,7 @@ Network SREs and hardware developers are constantly forced to choose between **w
 * **Single-Bench Debugger:** Test Row 4 in isolation using the `► Single` button without waiting for Rows 1–3 to execute.
 
 ---
+![](assets/main_window..jpg)
 
 ## 🏗️ Modular System Architecture
 
@@ -56,10 +57,13 @@ modern_multi_terminal/
 │   ├── connections.py           # Threaded SSH, Serial, and Telnet socket drivers
 │   ├── script_engine.py         # Legacy .ttl Tokenizer & Python exec() global hooks
 │   └── presets.py               # Static embedded macro download repository
+│   └── theme.py                 # Contain terminal theme and pallet
+│   └── sftp_hops.py             # for addition sshp hop jumper
 │
 ├── gui/
 │   ├── dialogs.py               # Modal views (Connection builders, Rename, Help)
 │   └── daw_manager.py           # DAW Playlist Sequencer & Supervisor Engine
+│   └── sftp_dialog.py           # UI for the jumper connection and file transfer between two systems
 │
 ├── main.py                      # Application Bootstrap & Tkinter Mainloop
 ├── LICENSE.txt                  # BSD License 3 Clause

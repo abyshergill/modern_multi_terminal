@@ -9,9 +9,20 @@ import serial
 
 class BaseConnection:
     label = "Connection"
-    def start(self, incoming: queue.Queue[str]) -> None: raise NotImplementedError
-    def send(self, data: str) -> None: raise NotImplementedError
-    def close(self) -> None: raise NotImplementedError
+
+    def start(self, incoming: queue.Queue[str]) -> None:
+        raise NotImplementedError
+
+    def send(self, data: str) -> None:
+        raise NotImplementedError
+
+    def close(self) -> None:
+        raise NotImplementedError
+
+    def resize(self, cols: int, rows: int) -> None:
+        """Default: no-op. Only connections that support PTY resize override this."""
+        pass
+
 
 class SSHConnection(BaseConnection):
     label = "SSH"
@@ -26,15 +37,24 @@ class SSHConnection(BaseConnection):
         self.client: paramiko.SSHClient | None = None
         self.channel: paramiko.Channel | None = None
         self.stop_event = threading.Event()
-
+        self.sftp: paramiko.SFTPClient | None = None
+    
+    def resize(self, cols: int, rows: int) -> None:
+        if not self.channel:
+            return
+        try:
+            self.channel.resize_pty(width=max(cols, 20), height=max(rows, 5))
+        except Exception:
+            pass
+        
     def start(self, incoming: queue.Queue[str]) -> None:
         self.client = paramiko.SSHClient()
         self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        incoming.put(f"[SSH connecting to {self.host}:{self.port} as {self.username}]\n")
+        incoming.put(f"\r\n[SSH connecting to {self.host}:{self.port} as {self.username}]\r\n")
         self.client.connect(hostname=self.host, port=self.port, username=self.username or None, password=self.password or None, timeout=self.timeout, look_for_keys=self.look_for_keys, allow_agent=self.allow_agent)
-        self.channel = self.client.invoke_shell(term="xterm", width=160, height=48)
+        self.channel = self.client.invoke_shell(term="xterm", width=100, height=30)
         self.channel.settimeout(0.2)
-        incoming.put("[SSH connected with interactive PTY]\n")
+        incoming.put("\r\n[SSH connected with interactive PTY]\r\n")
         threading.Thread(target=self._read_loop, args=(incoming,), daemon=True).start()
 
     def _read_loop(self, incoming: queue.Queue[str]) -> None:
@@ -48,9 +68,9 @@ class SSHConnection(BaseConnection):
                 elif self.channel.exit_status_ready(): break
                 else: time.sleep(0.02)
             except Exception as exc:
-                if not self.stop_event.is_set(): incoming.put(f"\n[SSH read error: {exc}]\n")
+                if not self.stop_event.is_set(): incoming.put(f"\r\n[SSH read error: {exc}]\r\n")
                 break
-        incoming.put("\n[SSH session closed]\n")
+        incoming.put("\r\n[SSH session closed]\r\n")
 
     def send(self, data: str) -> None:
         if not self.channel: raise RuntimeError("SSH channel is not active")
@@ -59,11 +79,29 @@ class SSHConnection(BaseConnection):
     def close(self) -> None:
         self.stop_event.set()
         try:
-            if self.channel: self.channel.close()
-        except Exception: pass
+            if self.sftp:
+                self.sftp.close()
+        except Exception:
+            pass
         try:
-            if self.client: self.client.close()
-        except Exception: pass
+            if self.channel:
+                self.channel.close()
+        except Exception:
+            pass
+        try:
+            if self.client:
+                self.client.close()
+        except Exception:
+            pass
+
+    
+    def get_sftp(self) -> paramiko.SFTPClient:
+        if not self.client:
+            raise RuntimeError("SSH client is not connected")
+        if self.sftp is None:
+            self.sftp = self.client.open_sftp()
+        return self.sftp
+
 
 class SerialConnection(BaseConnection):
     label = "Serial"

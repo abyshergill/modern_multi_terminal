@@ -33,7 +33,7 @@ class PlaylistSupervisorThread(threading.Thread):
                 if not sess: break
 
             self.app.after(0, lambda s=sess: self.app.select_session(s) if s in self.app.sessions else None)
-            sess.incoming.put(f"\n[═══ PLAYLIST STEP ({idx+1}/{len(self.playlist)}) ═══]\n")
+            sess.incoming.put(f"\r\n[═══ PLAYLIST STEP ({idx+1}/{len(self.playlist)}) ═══]\r\n")
             item.status = "Running"; self._push_ui()
             sess.incoming.put(f"[Playlist ➔] Executing: {Path(item.path).name}\n")
 
